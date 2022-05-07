@@ -18,3 +18,5 @@ Route::get('/user', [UserController::class, 'index']);
 */
 
 Route::get('/', [MainController::class, 'index']);
+
+Route::get('/get-price', [MainController::class, 'getPrice']);

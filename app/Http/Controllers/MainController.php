@@ -15,9 +15,7 @@ class MainController extends Controller
      */
     public function boot()
     {
-        Blade::directive('datetime', function ($expression) {
-            return "<?php echo ($expression)->format('m/d/Y H:i'); ?>";
-        });
+        // 
     }
     
     /**
@@ -43,16 +41,27 @@ class MainController extends Controller
                 $data_price = json_decode($response_price->body());
 
                 // the envelope price
-                $envelope_price = $data_price->products[0]->product_options->Envelope->price;
+                $product_options = $data_price->products[0]->product_options;
+                $envelope_price = $product_options->Envelope->price;
                 // and my new price
                 $new_price = $envelope_price + $product->price;
 
+                // get more names for different prices
+                $options = array();
+                foreach ($product_options as $option) {
+                    if ($option->name != 'Greetcard_Envelope') {
+                        array_push($options, $option->name);
+                    }
+                }
+
                 $my_product = array(
+                    'id' => $product->id,
                     'thumb_url' => $product->thumb_url,
                     'title' => $product->title,
                     'price_greendcard' => $product->price,
                     'price_envelope' => $envelope_price,
                     'price' => $new_price,
+                    'pricing_options' => $options,
                 );
                 array_push($data, $my_product);
             }
@@ -82,6 +91,36 @@ class MainController extends Controller
     public function store(Request $request)
     {
         //
+    }
+
+    public function getPrice(Request $request)
+    {
+        try {
+            $id = $request->get('id');
+            $price_name = $request->get('price_name');
+
+            $response_price = Http::post('https://www.mypostcard.com/mobile/product_prices.php?json=1&type=get_postcard_products&currencyiso=EUR&store_id=' . $id);
+            $data_price = json_decode($response_price->body());
+
+            $product_options = $data_price->products[0]->product_options;
+            $envelope_price = $product_options->Envelope->price;
+
+            $my_new_price = 0;
+            foreach ($product_options as $option) {
+                if ($option->name == $price_name) {
+                    $my_new_price = $option->price;
+                }
+            }
+
+            $my_new_price += $envelope_price;
+
+        } catch (\Throwable $th) {
+            throw $th;
+        }
+
+        return json_encode([
+            'new_price' => '€' . number_format($my_new_price, 2)
+        ]);
     }
 
     /**
